@@ -1,0 +1,12 @@
+# Each project is its own repository
+recon-mapper/
+web-recon-scanner/
+sentinel-log-analyzer/
+integrity-guard/
+cred-audit/
+netwatch/
+vulnfeed/
+securenotes/
+apitest/
+phishguard/
+.DS_Store
