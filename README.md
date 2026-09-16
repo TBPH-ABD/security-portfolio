@@ -61,6 +61,61 @@ flag makes that decision deliberate rather than accidental.
 application — encryption at rest, TLS termination, reputation feeds — the
 README says so rather than shipping a weak imitation.
 
+---
+
+## Quality
+
+Every tool is covered by an automated test suite that runs in CI on
+**Python 3.10, 3.11, 3.12 and 3.13** on each push.
+
+| Tool | Tests | Coverage |
+| --- | ---: | ---: |
+| recon-mapper | 40 | 98% |
+| web-recon-scanner | 45 | 84% |
+| sentinel-log-analyzer | 40 | 95% |
+| integrity-guard | 37 | 97% |
+| cred-audit | 50 | 97% |
+| netwatch | 43 | 81% |
+| vulnfeed | 50 | 95% |
+| securenotes | 63 | 86% |
+| apitest | 57 | 95% |
+| phishguard | 63 | 94% |
+| **Total** | **488** | **80% gate** |
+
+Tests use `unittest` from the standard library, so the zero-dependency promise
+holds for development as well as runtime. **No test contacts a real external
+service** — network-facing code is exercised against local fake servers bound
+to ephemeral ports, which keeps the suite fast, deterministic, and honest.
+
+Each suite also runs under `-W error::ResourceWarning`, so a leaked socket,
+file handle, or database connection fails the build.
+
+### What the tests found
+
+Writing them was not a formality. The suites surfaced five real defects in
+code that looked correct and ran correctly by hand:
+
+- **Four resource leaks.** `with sqlite3.connect(...)` manages a transaction
+  but does not close the connection — a file descriptor leaked on every
+  request in `securenotes` and every poll in `netwatch`. Three tools also left
+  `HTTPError` response buffers unclosed.
+- **A thread bug invisible on modern Python.** `netwatch`'s poller stored an
+  `Event` on `self._stop`, shadowing a private `threading.Thread` method that
+  exists in CPython ≤ 3.12. The thread raised on exit on Python 3.10–3.12 and
+  was silent on 3.13+. Only the CI version matrix caught it.
+- **A packaging bug.** `sentinel-log-analyzer`'s bundled sample logs were
+  matched by the shared `.gitignore` rule `*.log` and had never been committed,
+  so the sample-driven tests failed on a fresh clone. CI caught it on the
+  first run.
+
+### Specifications
+
+This work was specified before it was built:
+[CAPABILITY-MAP.md](CAPABILITY-MAP.md) ·
+[SPEC-test-harness.md](SPEC-test-harness.md) ·
+[SPEC-ci-pipeline.md](SPEC-ci-pipeline.md) ·
+[SPEC-quality-gates.md](SPEC-quality-gates.md)
+
 ## License
 
 All projects are MIT licensed.
